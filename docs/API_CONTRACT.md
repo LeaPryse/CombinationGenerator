@@ -10,7 +10,7 @@ state of each user's session on the server. Nothing is precomputed: every call c
 | Topic | Rule |
 |---|---|
 | Indices | All indices are **1-based display numbers** (the first permutation is `#1`). |
-| Large numbers | `totalCount`, `index`, `totalItems`, `totalPages`, `firstIndex` are JSON **strings** of decimal digits, because `20! = 2432902008176640000` exceeds `2^53` (the largest integer a JavaScript `number` represents exactly). `n`, `page`, `pageSize` and the permutation elements are JSON numbers. |
+| Large numbers | `totalCount`, `index`, `page` (in responses), `totalItems`, `totalPages`, `firstIndex` are JSON **strings** of decimal digits, because `20! = 2432902008176640000` exceeds `2^53` (the largest integer a JavaScript `number` represents exactly). `n`, `pageSize` and the permutation elements are JSON numbers. The `page` query parameter is plain text in the URL and is parsed as a 64-bit integer, so any page up to `totalPages` is addressable (for n = 20 and pageSize 1 that is about 2.4·10^18, beyond `2^53`). |
 | Session header | Every call except `start` must send `X-Session-Id: <guid>` (the value returned by `start`). |
 | Errors | Always `application/problem+json` (RFC 7807 ProblemDetails), see [Errors](#errors). Never a plain string. |
 | Absent values | Fields that have no value are present and `null` (never omitted). |
@@ -138,7 +138,7 @@ user entered "All" mode (see [Paging anchor](#paging-anchor)).
 | Name | Type | Default | Rule |
 |---|---|---|---|
 | `pageSize` | integer | `50` | `1..1000` |
-| `page` | integer | `1` | `>= 1` and `<= totalPages` (page `1` is always accepted, even when `totalPages` is `"0"`) |
+| `page` | integer (64-bit, decimal text) | `1` | `>= 1` and `<= totalPages` (page `1` is always accepted, even when `totalPages` is `"0"`) |
 
 **Request** (the user is viewing `#2` and enters "All" mode with a page size of 2)
 
@@ -155,7 +155,7 @@ X-Session-Id: 8f6c2a3e-4b1d-4c8e-9f2a-1d3b5e7a9c01
     { "index": "3", "permutation": [2, 1, 3] },
     { "index": "4", "permutation": [2, 3, 1] }
   ],
-  "page": 1,
+  "page": "1",
   "pageSize": 2,
   "totalPages": "2",
   "totalItems": "4",
@@ -172,7 +172,7 @@ X-Session-Id: 8f6c2a3e-4b1d-4c8e-9f2a-1d3b5e7a9c01
     { "index": "5", "permutation": [3, 1, 2] },
     { "index": "6", "permutation": [3, 2, 1] }
   ],
-  "page": 2,
+  "page": "2",
   "pageSize": 2,
   "totalPages": "2",
   "totalItems": "4",
@@ -186,7 +186,7 @@ X-Session-Id: 8f6c2a3e-4b1d-4c8e-9f2a-1d3b5e7a9c01
 ```json
 {
   "items": [],
-  "page": 1,
+  "page": "1",
   "pageSize": 2,
   "totalPages": "0",
   "totalItems": "0",
@@ -198,7 +198,7 @@ X-Session-Id: 8f6c2a3e-4b1d-4c8e-9f2a-1d3b5e7a9c01
 | Field | Type | Description |
 |---|---|---|
 | `items` | array | Permutations of this page, in order; each `{ index: string, permutation: number[] }`. |
-| `page` | number | Echo of the requested page. |
+| `page` | string | Echo of the requested page (string, like `totalPages`). |
 | `pageSize` | number | Echo of the effective page size. |
 | `totalPages` | string | `ceil(totalItems / pageSize)`. |
 | `totalItems` | string | Number of permutations after the anchor: `n! − anchorIndex`. |
