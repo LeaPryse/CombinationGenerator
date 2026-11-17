@@ -1,0 +1,44 @@
+<main class="generator">
+  <h1>Combination Generator</h1>
+
+  <app-error-message [message]="store.error()" (dismissed)="store.clearError()" />
+
+  @switch (store.mode()) {
+    @case ('input') {
+      <app-n-input [disabled]="store.loading()" (submitted)="store.start($event)" />
+    }
+
+    @case ('single') {
+      <app-single-panel
+        [n]="store.n() ?? 0"
+        [totalCount]="store.totalCount() ?? '0'"
+        [current]="store.current()"
+        [noMoreMessage]="store.noMoreMessage()"
+        [disabled]="store.loading()"
+        (next)="store.next()"
+        (showAll)="store.showAll()"
+        (reset)="store.reset()"
+      />
+    }
+
+    @case ('all') {
+      <app-all-panel
+        [n]="store.n() ?? 0"
+        [totalCount]="store.totalCount() ?? '0'"
+        [items]="store.items()"
+        [page]="store.page()"
+        [totalPages]="store.totalPages()"
+        [pageSize]="store.pageSize()"
+        [noMoreMessage]="store.noMoreMessage()"
+        [disabled]="store.loading()"
+        (back)="store.back()"
+        (pageSizeChange)="store.setPageSize($event)"
+        (pageChange)="store.goToPage($event)"
+      />
+    }
+  }
+
+  @if (store.loading()) {
+    <p class="loading" role="status">Loading…</p>
+  }
+</main>

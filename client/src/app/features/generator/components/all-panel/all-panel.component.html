@@ -1,0 +1,21 @@
+<section class="panel">
+  <app-total-count [n]="n()" [totalCount]="totalCount()" />
+  <app-action-buttons mode="all" [disabled]="disabled()" (back)="back.emit()" />
+  <app-error-message variant="info" [dismissible]="false" [message]="noMoreMessage()" />
+  @if (hasPages()) {
+    <div class="toolbar">
+      <app-page-size-select
+        [pageSize]="pageSize()"
+        [disabled]="disabled()"
+        (pageSizeChange)="pageSizeChange.emit($event)"
+      />
+    </div>
+    <app-combination-list [items]="items()" />
+    <app-paginator
+      [page]="page()"
+      [totalPages]="totalPages()"
+      [disabled]="disabled()"
+      (pageChange)="pageChange.emit($event)"
+    />
+  }
+</section>

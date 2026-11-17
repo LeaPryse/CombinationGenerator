@@ -1,0 +1,51 @@
+<nav class="paginator" aria-label="Pagination">
+  <div class="pages">
+    <button type="button" class="first" (click)="first()" [disabled]="disabled() || isFirst()">
+      « First
+    </button>
+    <button type="button" class="prev" (click)="prev()" [disabled]="disabled() || isFirst()">
+      ‹ Prev
+    </button>
+
+    <!-- track by position: jumping (e.g. to Last) replaces the whole window, so reuse the buttons -->
+    @for (p of windowPages(); track $index) {
+      <button
+        type="button"
+        class="page-number"
+        [class.active]="p === page()"
+        [attr.aria-current]="p === page() ? 'page' : null"
+        [disabled]="disabled()"
+        (click)="select(p)"
+      >
+        {{ p | thousands }}
+      </button>
+    }
+
+    <button type="button" class="next" (click)="next()" [disabled]="disabled() || isLast()">
+      Next ›
+    </button>
+    <button type="button" class="last" (click)="last()" [disabled]="disabled() || isLast()">
+      Last »
+    </button>
+  </div>
+
+  <form class="jump" (submit)="$event.preventDefault(); jump()">
+    <label>
+      Go to page
+      <input
+        type="text"
+        inputmode="numeric"
+        class="jump-input"
+        [value]="jumpText()"
+        (input)="onJumpInput($event)"
+        [class.invalid]="jumpInvalid()"
+        [attr.aria-invalid]="jumpInvalid()"
+        placeholder="1 – {{ totalPages() | thousands }}"
+      />
+    </label>
+    <button type="submit" class="jump-button" [disabled]="disabled() || jumpTarget() === null">
+      Go
+    </button>
+    <span class="summary">Page {{ page() | thousands }} of {{ totalPages() | thousands }}</span>
+  </form>
+</nav>

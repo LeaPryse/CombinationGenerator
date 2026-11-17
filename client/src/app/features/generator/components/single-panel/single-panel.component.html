@@ -1,0 +1,12 @@
+<section class="panel">
+  <app-total-count [n]="n()" [totalCount]="totalCount()" />
+  <app-current-combination [item]="current()" />
+  <app-error-message variant="info" [dismissible]="false" [message]="noMoreMessage()" />
+  <app-action-buttons
+    mode="single"
+    [disabled]="disabled()"
+    (next)="next.emit()"
+    (showAll)="showAll.emit()"
+    (reset)="reset.emit()"
+  />
+</section>
