@@ -1,6 +1,6 @@
 # Combination Generator – API Contract
 
-Version: 1.0 · Base path: `/api/permutations` · Format: JSON (`application/json`, camelCase)
+Version: 1.1 · Base path: `/api/permutations` · Format: JSON (`application/json`, camelCase)
 
 The server generates the permutations of `1..n` in **lexicographic order**, one step at a time, keeping the
 state of each user's session on the server. Nothing is precomputed: every call computes only what it returns.
@@ -65,7 +65,9 @@ Content-Type: application/json
 | `n` | number | Echo of the requested `n`. |
 | `totalCount` | string | `n!` – total number of permutations. |
 
-**Errors:** `400` if the body is missing/malformed or `n` is not an integer in `1..20`.
+**Errors:** `400` if the body is missing/malformed or `n` is not an integer in `1..20` (always
+`errors: { "n": ["n must be between 1 and 20."] }`, see [Errors](#errors)); `503` when the server's session limit is
+reached (see [Session](#session)).
 
 ---
 
@@ -205,8 +207,31 @@ X-Session-Id: 8f6c2a3e-4b1d-4c8e-9f2a-1d3b5e7a9c01
 | `firstIndex` | string \| null | Index of the first permutation after the anchor (`anchorIndex + 1`); `null` when `totalItems` is `"0"`. |
 | `message` | string \| null | `"No more combinations"` when `totalItems` is `"0"`, otherwise `null`. |
 
-**Errors:** `400` invalid `pageSize`/`page` (including `page > totalPages`), missing/invalid `X-Session-Id`;
-`404` unknown or expired session.
+**Errors:** `400` invalid `pageSize`/`page` (including `page > totalPages` and values that are not integers),
+missing/invalid `X-Session-Id`; `404` unknown or expired session.
+
+---
+
+### 4. `POST /api/permutations/back`
+
+Leaves "All" mode (the user pressed **Back**). Clears the session's paging anchor **without moving** the current
+position: that position already is the last item of the last page served, which is exactly what the client shows
+after Back (it has the item already, so the response has no body). The next `/all` therefore captures a new anchor
+right after that item, and `/next` continues from it. Idempotent: calling it outside "All" mode changes nothing.
+
+The client **must** call it when the user goes Back; otherwise the server stays in "All" mode and a later "All"
+would reuse the stale anchor of the previous visit (see the [example](#back-returning-from-all-mode)).
+
+**Request** (no body)
+
+```http
+POST /api/permutations/back
+X-Session-Id: 8f6c2a3e-4b1d-4c8e-9f2a-1d3b5e7a9c01
+```
+
+**Response `204 No Content`** – empty body.
+
+**Errors:** `400` missing/invalid `X-Session-Id`; `404` unknown or expired session.
 
 ---
 
@@ -217,9 +242,15 @@ X-Session-Id: 8f6c2a3e-4b1d-4c8e-9f2a-1d3b5e7a9c01
 - A session is created by `POST /start` and identified by its `sessionId` (GUID).
 - The server keeps, per session: `n`, the **current position** (index of the currently displayed permutation;
   `0` = nothing displayed yet), and the **"All" mode anchor** (see below).
-- Sliding expiration of **30 minutes**: every successful call on a session resets its timer. After expiry the
-  session is gone and every call returns `404`.
+- Sliding expiration of **30 minutes**: every call that reaches an existing session resets its timer – including a
+  call that is then rejected because of the session's state (`page > totalPages`). Calls rejected before the session
+  is looked up (missing/invalid `X-Session-Id`, invalid `pageSize`, `page < 1`, non-integer query values) do not
+  touch it. After expiry the session is gone and every call returns `404`.
 - Sessions are fully isolated from each other; concurrent requests on the same session are serialized on the server.
+- The server holds at most **`Sessions:MaxSessions`** live sessions (configuration, default `10000`). When the
+  limit is reached, `start` returns `503` ProblemDetails (see [Errors](#errors)); live sessions are **never** evicted
+  to make room, and existing sessions keep working. Room frees up as idle sessions expire (expired sessions are
+  purged before `start` is rejected).
 
 ### Paging anchor
 
@@ -227,10 +258,11 @@ X-Session-Id: 8f6c2a3e-4b1d-4c8e-9f2a-1d3b5e7a9c01
   if `#1000` is displayed, page 1 starts at `#1001`. If nothing has been displayed yet (right after `start`),
   page 1 starts at `#1`.
 - The anchor is **server-side state** – there is no anchor query parameter. The server captures it on the
-  **first `/all` request after a `/start` or `/next`**, as the then-current position.
+  **first `/all` request after a `/start`, `/next` or `/back`**, as the then-current position.
 - While the user pages (any number of `/all` calls, any `page`/`pageSize`), the anchor stays **fixed**, so
   `firstIndex`, `totalItems` and page boundaries are stable.
-- The next `/next` call **ends "All" mode**; the following `/all` captures a new anchor.
+- Only `/next` and `/back` **end "All" mode** (clear the anchor); the following `/all` captures a new anchor.
+  `/start` creates a new session, which has no anchor.
 
 Example (n = 3, page size 2): `next` → `#1`, `next` → `#2`, `all?page=1` → anchor `#2`, items `#3,#4`;
 `all?page=2` → still anchor `#2`, items `#5,#6`.
@@ -239,12 +271,25 @@ Example (n = 3, page size 2): `next` → `#1`, `next` → `#2`, `all?page=1` →
 
 - Every `/all` response that returns at least one item moves the session's **current position to the last item
   of the returned page**. An empty response leaves the position unchanged.
-- When the user goes Back to single mode, the client displays that last item itself (it already has it – no
-  extra request is needed), and the following `/next` continues right after it.
+- When the user goes Back to single mode, the client calls `POST /back` (ends "All" mode on the server) and
+  displays that last item itself (it already has it – `/back` returns no body). The following `/next` continues
+  right after it, and the following `/all` starts right after it.
 
 Example (continuing above): after `all?page=1` (items `#3,#4`) the current position is `#4`; Back shows `#4`;
 `next` returns `#5`. Had the user stopped on page 2 (items `#5,#6`), Back would show `#6` and `next` would return
 `"No more combinations"`.
+
+Example – Back, then "All" again (n = 3, page size 2):
+
+| Step | Call | Result | Anchor after | Position after |
+|---|---|---|---|---|
+| 1 | `next` | `#1` | – | `#1` |
+| 2 | `all?pageSize=2&page=1` | `#2,#3` (`firstIndex "2"`, `totalItems "5"`) | `#1` | `#3` |
+| 3 | `all?pageSize=2&page=2` | `#4,#5` | `#1` | `#5` |
+| 4 | `back` | `204`; the client shows `#5` | – | `#5` |
+| 5 | `all?pageSize=2&page=1` | `#6` (`firstIndex "6"`, `totalItems "1"`) | `#5` | `#6` |
+
+Without step 4 the server would still be in "All" mode and step 5 would return `#2,#3` again (stale anchor).
 
 ### No precomputation
 
@@ -275,6 +320,11 @@ A `traceId` extension is included for correlation with server logs.
 }
 ```
 
+The **same response** is returned when `n` is missing or the body is malformed: no body, `{}`, `{ "n": null }`,
+`{ "n": "abc" }`, `{ "n": 3.5 }`, `{ "n": 99999999999 }`, invalid JSON, or a JSON value that is not an object.
+The `errors` key is always `n`. (A non-empty body sent with a non-JSON `Content-Type` is rejected by the framework
+with `415` ProblemDetails.)
+
 ### `400` – invalid `pageSize`
 
 `GET /api/permutations/all?pageSize=0`
@@ -289,6 +339,8 @@ A `traceId` extension is included for correlation with server logs.
   "traceId": "00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-00"
 }
 ```
+
+A `pageSize` that is not a 32-bit integer (`abc`, `1.5`, `99999999999`) yields the same response.
 
 ### `400` – invalid `page`
 
@@ -306,6 +358,11 @@ A `traceId` extension is included for correlation with server logs.
 ```
 
 `page=0` (or negative) yields the same shape with `"page must be greater than or equal to 1."`.
+A `page` that is not a 64-bit integer (`abc`, `1.5`, `1e3`, `9223372036854775808`) yields the same shape with
+`"page must be an integer greater than or equal to 1."` (the upper bound is not known before the session is read).
+
+If several query values are invalid at once, `errors` lists each offending field and `detail` repeats the first
+message.
 
 ### `400` – missing or invalid session header
 
@@ -334,12 +391,27 @@ A `traceId` extension is included for correlation with server logs.
 }
 ```
 
+### `503` – session limit reached
+
+`POST /api/permutations/start` while the server already holds `Sessions:MaxSessions` live sessions
+
+```json
+{
+  "type": "https://tools.ietf.org/html/rfc9110#section-15.6.4",
+  "title": "Session limit reached",
+  "status": 503,
+  "detail": "The server has reached its maximum number of active sessions. Try again later.",
+  "traceId": "00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-00"
+}
+```
+
 ### Status code summary
 
-| Endpoint | 200 | 400 | 404 |
-|---|---|---|---|
-| `POST /start` | session created | invalid/missing `n`, malformed body | – |
-| `GET /next` | permutation or "No more combinations" | missing/invalid `X-Session-Id` | unknown/expired session |
-| `GET /all` | page (possibly empty with "No more combinations") | invalid `pageSize`/`page`, missing/invalid `X-Session-Id` | unknown/expired session |
+| Endpoint | Success | 400 | 404 | 503 |
+|---|---|---|---|---|
+| `POST /start` | `200` session created | invalid/missing `n`, malformed body | – | session limit reached |
+| `GET /next` | `200` permutation or "No more combinations" | missing/invalid `X-Session-Id` | unknown/expired session | – |
+| `GET /all` | `200` page (possibly empty with "No more combinations") | invalid `pageSize`/`page`, missing/invalid `X-Session-Id` | unknown/expired session | – |
+| `POST /back` | `204` "All" mode ended | missing/invalid `X-Session-Id` | unknown/expired session | – |
 
 Unexpected server failures return `500` ProblemDetails without internal details.
