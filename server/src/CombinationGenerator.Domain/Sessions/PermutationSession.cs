@@ -64,6 +64,47 @@ public sealed class PermutationSession
     /// <exception cref="ArgumentOutOfRangeException"><paramref name="n"/> is out of range.</exception>
     public static PermutationSession Create(int n) => new(Guid.NewGuid(), n);
 
+    /// <summary>
+    /// Rebuilds a session from its persisted state (e.g. when a distributed store rehydrates it), without reflection.
+    /// The current permutation is recomputed with <see cref="PermutationAlgorithms.Unrank"/>: O(n²) time, O(n) memory.
+    /// </summary>
+    /// <param name="id">The session identifier; must not be <see cref="Guid.Empty"/>.</param>
+    /// <param name="n">Permutation size in <c><see cref="PermutationAlgorithms.MinN"/>..<see cref="PermutationAlgorithms.MaxN"/></c>.</param>
+    /// <param name="currentIndex">
+    /// <b>0-based</b> index of the displayed permutation, in <c>-1..n! - 1</c> (−1 = nothing displayed yet).
+    /// </param>
+    /// <param name="pagingAnchor">
+    /// The "All" mode anchor, or <c>null</c> when not in "All" mode. When set it must be in
+    /// <c>0..currentIndex + 1</c>, because every page served moves the position to an item at or after the anchor.
+    /// </param>
+    /// <returns>The restored session; it behaves exactly like the original one.</returns>
+    /// <exception cref="ArgumentException"><paramref name="id"/> is <see cref="Guid.Empty"/>.</exception>
+    /// <exception cref="ArgumentOutOfRangeException">
+    /// <paramref name="n"/>, <paramref name="currentIndex"/> or <paramref name="pagingAnchor"/> is out of range.
+    /// </exception>
+    public static PermutationSession Restore(Guid id, int n, long currentIndex, long? pagingAnchor)
+    {
+        var session = new PermutationSession(id, n);
+
+        ArgumentOutOfRangeException.ThrowIfLessThan(currentIndex, -1L);
+        ArgumentOutOfRangeException.ThrowIfGreaterThanOrEqual(currentIndex, session.TotalCount);
+
+        if (pagingAnchor is { } anchor)
+        {
+            ArgumentOutOfRangeException.ThrowIfLessThan(anchor, 0L, nameof(pagingAnchor));
+            ArgumentOutOfRangeException.ThrowIfGreaterThan(anchor, currentIndex + 1, nameof(pagingAnchor));
+        }
+
+        if (currentIndex >= 0)
+        {
+            session._current = PermutationAlgorithms.Unrank(n, currentIndex);
+        }
+
+        session.CurrentIndex = currentIndex;
+        session.PagingAnchor = pagingAnchor;
+        return session;
+    }
+
     /// <summary>The session identifier.</summary>
     public Guid Id { get; }
 
@@ -90,8 +131,9 @@ public sealed class PermutationSession
 
     /// <summary>
     /// <b>0-based</b> index of the first item of "All" mode (page 1, item 1), or <c>null</c> when the session is not in
-    /// "All" mode. Captured by the first <see cref="GetPage"/> after creation or after <see cref="MoveNext"/>,
-    /// as <see cref="NextIndex"/> at that moment; it then stays fixed until <see cref="MoveNext"/> clears it.
+    /// "All" mode. Captured by the first <see cref="GetPage"/> after creation, <see cref="MoveNext"/> or
+    /// <see cref="ExitAllMode"/>, as <see cref="NextIndex"/> at that moment; it then stays fixed until
+    /// <see cref="MoveNext"/> or <see cref="ExitAllMode"/> clears it.
     /// Numerically it equals the 1-based display number of the anchor permutation (the one shown when entering "All" mode).
     /// </summary>
     public long? PagingAnchor { get; private set; }
@@ -128,6 +170,18 @@ public sealed class PermutationSession
         CurrentIndex++;
         return new NextResult(new PermutationItem(CurrentIndex, (int[])_current.Clone()), HasMore);
     }
+
+    /// <summary>
+    /// Ends "All" mode without moving: clears <see cref="PagingAnchor"/> and keeps <see cref="CurrentIndex"/> and
+    /// <see cref="Current"/> unchanged. O(1). Idempotent.
+    /// </summary>
+    /// <remarks>
+    /// Used when the user leaves "All" mode with "Back". Because every <see cref="GetPage"/> already moved the position to
+    /// the last item of the page it served, the position is exactly the permutation "Back" displays; the next
+    /// <see cref="GetPage"/> therefore re-captures the anchor right after it (<see cref="NextIndex"/>), and
+    /// <see cref="MoveNext"/> continues from it as well.
+    /// </remarks>
+    public void ExitAllMode() => PagingAnchor = null;
 
     /// <summary>
     /// Returns one page of the permutations that follow the paging anchor and moves the current position to the

@@ -295,6 +295,196 @@ public class PermutationSessionTests
         session.Current.Should().Equal(2, 3, 1);
     }
 
+    // ---- ExitAllMode ----------------------------------------------------
+
+    [Fact]
+    public void ExitAllMode_BackScenario_NextAllStartsRightAfterLastDisplayedItem()
+    {
+        // n=3, size 2: Next #1, All #2,#3, page 2 #4,#5, Back shows #5, All again must start at #6.
+        var session = PermutationSession.Create(3);
+        session.MoveNext();             // index 0 (#1)
+        session.GetPage(1, 2);          // indices 1,2
+        session.GetPage(2, 2);          // indices 3,4 -> current 4 (#5)
+
+        session.ExitAllMode();
+
+        session.PagingAnchor.Should().BeNull();
+        session.CurrentIndex.Should().Be(4);
+        session.Current.Should().Equal(N3Sequence[4]);
+
+        var page = session.GetPage(1, 2);
+
+        session.PagingAnchor.Should().Be(5);
+        page.FirstIndex.Should().Be(5);
+        page.TotalItems.Should().Be(1);
+        page.TotalPages.Should().Be(1);
+        page.Items.Select(i => i.Index).Should().Equal(5);
+        page.Items[0].Values.Should().Equal(N3Sequence[5]);
+    }
+
+    [Fact]
+    public void ExitAllMode_AfterGetPage_NextContinuesAfterLastDisplayedItem()
+    {
+        var session = PermutationSession.Create(3);
+        session.GetPage(1, 2); // indices 0,1
+
+        session.ExitAllMode();
+        var next = session.MoveNext();
+
+        next.Item!.Index.Should().Be(2);
+        next.Item.Values.Should().Equal(N3Sequence[2]);
+    }
+
+    [Fact]
+    public void ExitAllMode_NotInAllMode_IsNoOp()
+    {
+        var session = PermutationSession.Create(3);
+        session.MoveNext();
+
+        session.ExitAllMode();
+        session.ExitAllMode();
+
+        session.PagingAnchor.Should().BeNull();
+        session.CurrentIndex.Should().Be(0);
+        session.Current.Should().Equal(1, 2, 3);
+    }
+
+    [Fact]
+    public void ExitAllMode_BeforeAnythingShown_NextAllStartsAtIndexZero()
+    {
+        var session = PermutationSession.Create(3);
+
+        session.ExitAllMode();
+        var page = session.GetPage(1, 2);
+
+        page.FirstIndex.Should().Be(0);
+        page.Items.Select(i => i.Index).Should().Equal(0, 1);
+    }
+
+    // ---- Restore --------------------------------------------------------
+
+    [Fact]
+    public void Restore_BeforeAnythingShown_EqualsFreshSession()
+    {
+        var id = Guid.NewGuid();
+
+        var session = PermutationSession.Restore(id, 3, -1, null);
+
+        session.Id.Should().Be(id);
+        session.N.Should().Be(3);
+        session.TotalCount.Should().Be(6);
+        session.CurrentIndex.Should().Be(-1);
+        session.Current.Should().BeNull();
+        session.PagingAnchor.Should().BeNull();
+        session.MoveNext().Item!.Values.Should().Equal(1, 2, 3);
+    }
+
+    [Fact]
+    public void Restore_MidSequence_RebuildsCurrentAndContinues()
+    {
+        var session = PermutationSession.Restore(Guid.NewGuid(), 3, 3, null);
+
+        session.CurrentIndex.Should().Be(3);
+        session.Current.Should().Equal(N3Sequence[3]);
+        var next = session.MoveNext();
+        next.Item!.Index.Should().Be(4);
+        next.Item.Values.Should().Equal(N3Sequence[4]);
+    }
+
+    [Fact]
+    public void Restore_InAllMode_ReusesAnchor()
+    {
+        var session = PermutationSession.Restore(Guid.NewGuid(), 3, 4, 1);
+
+        var page = session.GetPage(1, 2);
+
+        session.PagingAnchor.Should().Be(1);
+        page.FirstIndex.Should().Be(1);
+        page.Items.Select(i => i.Index).Should().Equal(1, 2);
+        session.CurrentIndex.Should().Be(2);
+    }
+
+    [Fact]
+    public void Restore_RoundTrip_BehavesLikeOriginal()
+    {
+        var original = PermutationSession.Create(5);
+        original.MoveNext();
+        original.GetPage(3, 7);
+
+        var restored = PermutationSession.Restore(original.Id, original.N, original.CurrentIndex, original.PagingAnchor);
+
+        restored.Current.Should().Equal(original.Current!);
+        restored.GetPage(4, 7).Items.Select(i => i.Values)
+            .Should().BeEquivalentTo(original.GetPage(4, 7).Items.Select(i => i.Values), o => o.WithStrictOrdering());
+        restored.MoveNext().Item!.Values.Should().Equal(original.MoveNext().Item!.Values);
+    }
+
+    [Fact]
+    public void Restore_ExhaustedN20_RebuildsLastPermutation()
+    {
+        var last = PermutationAlgorithms.Factorial(20) - 1;
+
+        var session = PermutationSession.Restore(Guid.NewGuid(), 20, last, last + 1);
+
+        session.Current.Should().Equal(Enumerable.Range(1, 20).Reverse());
+        session.HasMore.Should().BeFalse();
+        session.GetPage(1, 10).IsEmpty.Should().BeTrue();
+    }
+
+    [Fact]
+    public void Restore_EmptyId_ThrowsArgumentException()
+    {
+        var act = () => PermutationSession.Restore(Guid.Empty, 3, 0, null);
+
+        act.Should().Throw<ArgumentException>().WithParameterName("id");
+    }
+
+    [Theory]
+    [InlineData(0)]
+    [InlineData(21)]
+    public void Restore_InvalidN_ThrowsArgumentOutOfRange(int n)
+    {
+        var act = () => PermutationSession.Restore(Guid.NewGuid(), n, 0, null);
+
+        act.Should().Throw<ArgumentOutOfRangeException>().WithParameterName("n");
+    }
+
+    [Theory]
+    [InlineData(-2L)]
+    [InlineData(6L)]
+    [InlineData(long.MinValue)]
+    [InlineData(long.MaxValue)]
+    public void Restore_CurrentIndexOutOfRange_ThrowsArgumentOutOfRange(long currentIndex)
+    {
+        var act = () => PermutationSession.Restore(Guid.NewGuid(), 3, currentIndex, null);
+
+        act.Should().Throw<ArgumentOutOfRangeException>().WithParameterName("currentIndex");
+    }
+
+    [Theory]
+    [InlineData(2L, -1L)]
+    [InlineData(2L, 4L)]
+    [InlineData(-1L, 1L)]
+    [InlineData(5L, 7L)]
+    public void Restore_PagingAnchorOutOfRange_ThrowsArgumentOutOfRange(long currentIndex, long anchor)
+    {
+        var act = () => PermutationSession.Restore(Guid.NewGuid(), 3, currentIndex, anchor);
+
+        act.Should().Throw<ArgumentOutOfRangeException>().WithParameterName("pagingAnchor");
+    }
+
+    [Theory]
+    [InlineData(-1L, 0L)]
+    [InlineData(2L, 0L)]
+    [InlineData(2L, 3L)]
+    [InlineData(5L, 6L)]
+    public void Restore_PagingAnchorAtBounds_IsAccepted(long currentIndex, long anchor)
+    {
+        var session = PermutationSession.Restore(Guid.NewGuid(), 3, currentIndex, anchor);
+
+        session.PagingAnchor.Should().Be(anchor);
+    }
+
     // ---- GetPage: page math ----------------------------------------------
 
     [Fact]
