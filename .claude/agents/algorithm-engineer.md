@@ -16,7 +16,7 @@ Read `.claude/skills/permutation-algorithms/SKILL.md` and `.claude/skills/dotnet
 
 ## Responsibilities
 1. `Permutations/PermutationAlgorithms.cs` (static, pure): `Factorial(int n)`, `NextPermutation(Span<int>)`, `Unrank(int n, long index)`, `Rank(ReadOnlySpan<int>)`, constants `MinN = 1`, `MaxN = 20`.
-2. `Sessions/PermutationSession.cs`: entity holding `Id`, `N`, `TotalCount`, `CurrentIndex` (−1 = nothing shown yet), `Current` permutation; methods `TryMoveNext(out …)` and `GetPage(long anchorIndex, int page, int pageSize)` that use the algorithms per the skill's "when to use which" table, and update `CurrentIndex`/`Current` to the last item served. Expose `NextIndex` (= CurrentIndex + 1) for paging anchors.
+2. `Sessions/PermutationSession.cs`: entity holding `Id`, `N`, `TotalCount`, `CurrentIndex` (−1 = nothing shown yet), `Current` permutation; `PagingAnchor` stored in the session; methods `NextResult MoveNext()` (clears the anchor) and `PageResult GetPage(long page, int pageSize)` (captures the anchor on first use) that use the algorithms per the skill's "when to use which" table, and update `CurrentIndex`/`Current` to the last item served. Expose `NextIndex` (= CurrentIndex + 1). `page` is `long` (n=20 has > int.MaxValue pages).
 3. Guard clauses with `ArgumentOutOfRangeException`; XML docs on every public member explaining complexity.
 4. Tests covering **every** property in the skill's "Required test properties", plus session behavior (first Next = #1, exhaustion, page math, last page shorter, page beyond range).
 

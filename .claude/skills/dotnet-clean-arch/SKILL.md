@@ -20,6 +20,16 @@ Api ──► Application ──► Domain
 
 **Never** reference Infrastructure from Application, or Api types from anywhere else.
 
+### Mapping to classic N-tier terms
+Use this mapping when explaining the architecture (README, INTERVIEW.md, code comments):
+
+| Classic N-tier | Here | Why it differs |
+|---|---|---|
+| Controller (API) | `Api` | Same role: HTTP in/out only. |
+| Model / DTO | `Application/Dtos` | DTOs live next to the use cases that produce them. |
+| BL (business logic) | `Domain` **+** `Application` | BL is split: **Domain** = the pure calculation (permutation algorithms, session entity) with zero dependencies; **Application** = orchestration services (load session → calculate → save → map to DTO). |
+| DAL (data access) | `Infrastructure` | Implements `ISessionStore` (in-memory today, Redis tomorrow). BL depends on the interface, not on the DAL (Dependency Inversion). |
+
 ## Project settings (via `server/Directory.Build.props`)
 - `TargetFramework` `net8.0`, `Nullable` enable, `ImplicitUsings` enable
 - `TreatWarningsAsErrors` true, `LangVersion` latest

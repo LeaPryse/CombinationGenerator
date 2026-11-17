@@ -14,6 +14,8 @@ state of each user's session on the server. Nothing is precomputed: every call c
 | Session header | Every call except `start` must send `X-Session-Id: <guid>` (the value returned by `start`). |
 | Errors | Always `application/problem+json` (RFC 7807 ProblemDetails), see [Errors](#errors). Never a plain string. |
 | Absent values | Fields that have no value are present and `null` (never omitted). |
+| CORS | Only the Angular dev origin `http://localhost:4200` is allowed, and it must be allowed to send the `X-Session-Id` header. In development the Angular dev server also proxies `/api` to the API, so the browser normally makes same-origin calls. |
+| Session not found | Unknown and expired sessions both return `404`; for the client the reaction is the same (return to the input screen). |
 
 ### Reference data for n = 3
 

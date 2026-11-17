@@ -14,7 +14,7 @@ Output: `docs/INTERVIEW.md`, in English. Audience: the candidate, rehearsing to 
 - No marketing tone, no filler.
 
 ## Required sections
-1. **Overview** — what the system does, one diagram (Mermaid) of client → API → service → session store.
+1. **Overview** — what the system does, one diagram (Mermaid) of client → API → service → session store, and the **N-tier mapping table** from the dotnet-clean-arch skill (Controller / DTO / BL / DAL → Api / Application.Dtos / Domain+Application / Infrastructure), with one sentence on why BL is split into Domain and Application.
 2. **The 5 assignment questions**
    1. Which state-management model did you choose and why? (server: session-id + `ISessionStore`; client: Signals store)
    2. NextPermutation vs. index-based permutation — difference, and where each is used.
