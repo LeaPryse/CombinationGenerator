@@ -6,7 +6,7 @@ namespace CombinationGenerator.Application.Permutations;
 /// <summary>
 /// Session-independent checks of the paging query values. Each check returns the failure instead of throwing, so
 /// that every offending field can be reported together (contract: "If several query values are invalid at once,
-/// <c>errors</c> lists each offending field"). Used by <see cref="PermutationService.GetPageAsync"/> and by the Api for
+/// <c>errors</c> lists each offending field"). Used by <see cref="PermutationService.GetAllAsync"/> and by the Api for
 /// values that bound successfully while another query value could not be parsed.
 /// </summary>
 /// <remarks>

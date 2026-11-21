@@ -7,9 +7,10 @@ import { N_MAX, N_MIN } from '../../../../core/models/permutation.models';
   selector: 'app-n-input',
   imports: [ReactiveFormsModule],
   template: `
-    <form class="n-input" (submit)="$event.preventDefault(); submit()">
+    <form class="n-input" (submit)="$event.preventDefault(); submit(nInput)">
       <label for="n-value">Enter n ({{ min }}–{{ max }}):</label>
       <input
+        #nInput
         id="n-value"
         type="number"
         [min]="min"
@@ -17,10 +18,13 @@ import { N_MAX, N_MIN } from '../../../../core/models/permutation.models';
         step="1"
         [formControl]="control"
         [attr.aria-invalid]="showError()"
+        [attr.aria-describedby]="showError() ? 'n-error' : null"
       />
-      <button type="submit" [disabled]="disabled() || control.invalid">Start</button>
+      <button type="submit" [disabled]="disabled()">Start</button>
       @if (showError()) {
-        <p class="validation" role="alert">n must be a whole number between {{ min }} and {{ max }}.</p>
+        <p id="n-error" class="validation" role="alert">
+          n must be a whole number between {{ min }} and {{ max }}.
+        </p>
       }
     </form>
   `,
@@ -60,10 +64,15 @@ export class NInputComponent {
     return this.control.invalid && (this.control.dirty || this.control.touched);
   }
 
-  protected submit(): void {
+  /** On a failed submit the error is shown and focus moves to the invalid field. */
+  protected submit(input?: HTMLInputElement): void {
     this.control.markAsTouched();
     const value = this.control.value;
-    if (this.disabled() || this.control.invalid || value === null) return;
+    if (this.disabled()) return;
+    if (this.control.invalid || value === null) {
+      input?.focus();
+      return;
+    }
     this.submitted.emit(Number(value));
   }
 }

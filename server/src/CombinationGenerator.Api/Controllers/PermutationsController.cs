@@ -39,7 +39,7 @@ public sealed class PermutationsController : ControllerBase
     [ProducesResponseType<StartSessionResponse>(StatusCodes.Status200OK, "application/json")]
     [ProducesResponseType<ValidationProblemDetails>(StatusCodes.Status400BadRequest, "application/problem+json")]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status503ServiceUnavailable, "application/problem+json")]
-    public async Task<ActionResult<StartSessionResponse>> Start(
+    public async Task<ActionResult<StartSessionResponse>> StartAPI(
         [FromBody(EmptyBodyBehavior = EmptyBodyBehavior.Allow)] StartSessionRequest? request,
         CancellationToken cancellationToken)
     {
@@ -55,7 +55,7 @@ public sealed class PermutationsController : ControllerBase
     [ProducesResponseType<NextPermutationResponse>(StatusCodes.Status200OK, "application/json")]
     [ProducesResponseType<ValidationProblemDetails>(StatusCodes.Status400BadRequest, "application/problem+json")]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound, "application/problem+json")]
-    public async Task<ActionResult<NextPermutationResponse>> Next(
+    public async Task<ActionResult<NextPermutationResponse>> GetNextAPI(
         [FromHeader(Name = SessionHeader.Name)] string? sessionId,
         CancellationToken cancellationToken)
     {
@@ -75,13 +75,13 @@ public sealed class PermutationsController : ControllerBase
     [ProducesResponseType<PermutationPageResponse>(StatusCodes.Status200OK, "application/json")]
     [ProducesResponseType<ValidationProblemDetails>(StatusCodes.Status400BadRequest, "application/problem+json")]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound, "application/problem+json")]
-    public async Task<ActionResult<PermutationPageResponse>> All(
+    public async Task<ActionResult<PermutationPageResponse>> GetAllAPI(
         [FromHeader(Name = SessionHeader.Name)] string? sessionId,
         [FromQuery] int pageSize = PagingDefaults.PageSize,
         [FromQuery] long page = PagingDefaults.Page,
         CancellationToken cancellationToken = default)
     {
-        return Ok(await _service.GetPageAsync(SessionHeader.Parse(sessionId), page, pageSize, cancellationToken));
+        return Ok(await _service.GetAllAsync(SessionHeader.Parse(sessionId), page, pageSize, cancellationToken));
     }
 
     /// <summary>

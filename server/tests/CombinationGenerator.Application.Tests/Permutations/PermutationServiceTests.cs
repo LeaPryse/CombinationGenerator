@@ -132,14 +132,14 @@ public class PermutationServiceTests
         (await act.Should().ThrowAsync<SessionNotFoundException>()).Which.SessionId.Should().Be(id);
     }
 
-    // ---- GetPageAsync: contract examples (n = 3) ------------------------
+    // ---- GetAllAsync: contract examples (n = 3) ------------------------
 
     [Fact]
-    public async Task GetPageAsync_ViewingIndex2PageSize2_ReturnsContractPage1()
+    public async Task GetAllAsync_ViewingIndex2PageSize2_ReturnsContractPage1()
     {
         var sessionId = await StartAndAdvanceAsync(3, 2);
 
-        var response = await _sut.GetPageAsync(sessionId, 1, 2);
+        var response = await _sut.GetAllAsync(sessionId, 1, 2);
 
         response.Should().BeEquivalentTo(
             new PermutationPageResponse(
@@ -154,12 +154,12 @@ public class PermutationServiceTests
     }
 
     [Fact]
-    public async Task GetPageAsync_SecondPageSameAnchor_ReturnsContractPage2()
+    public async Task GetAllAsync_SecondPageSameAnchor_ReturnsContractPage2()
     {
         var sessionId = await StartAndAdvanceAsync(3, 2);
-        await _sut.GetPageAsync(sessionId, 1, 2);
+        await _sut.GetAllAsync(sessionId, 1, 2);
 
-        var response = await _sut.GetPageAsync(sessionId, 2, 2);
+        var response = await _sut.GetAllAsync(sessionId, 2, 2);
 
         response.Should().BeEquivalentTo(
             new PermutationPageResponse(
@@ -174,11 +174,11 @@ public class PermutationServiceTests
     }
 
     [Fact]
-    public async Task GetPageAsync_ViewingLast_ReturnsEmptyPageWithMessage()
+    public async Task GetAllAsync_ViewingLast_ReturnsEmptyPageWithMessage()
     {
         var sessionId = await StartAndAdvanceAsync(3, 6);
 
-        var response = await _sut.GetPageAsync(sessionId, 1, 2);
+        var response = await _sut.GetAllAsync(sessionId, 1, 2);
 
         response.Should().BeEquivalentTo(
             new PermutationPageResponse([], "1", 2, "0", "0", null, NoMore));
@@ -186,11 +186,11 @@ public class PermutationServiceTests
     }
 
     [Fact]
-    public async Task GetPageAsync_RightAfterStart_FirstItemIsIndex1()
+    public async Task GetAllAsync_RightAfterStart_FirstItemIsIndex1()
     {
         var sessionId = (await _sut.StartAsync(3)).SessionId;
 
-        var response = await _sut.GetPageAsync(sessionId, 1, 50);
+        var response = await _sut.GetAllAsync(sessionId, 1, 50);
 
         response.FirstIndex.Should().Be("1");
         response.TotalItems.Should().Be("6");
@@ -198,17 +198,17 @@ public class PermutationServiceTests
         response.Items.Select(i => i.Index).Should().Equal("1", "2", "3", "4", "5", "6");
     }
 
-    // ---- GetPageAsync: anchor and Back semantics ------------------------
+    // ---- GetAllAsync: anchor and Back semantics ------------------------
 
     [Fact]
-    public async Task GetPageAsync_AnchorFixedAcrossPagesAndPageSizes()
+    public async Task GetAllAsync_AnchorFixedAcrossPagesAndPageSizes()
     {
         var sessionId = await StartAndAdvanceAsync(4, 3);
-        var first = await _sut.GetPageAsync(sessionId, 1, 5);
+        var first = await _sut.GetAllAsync(sessionId, 1, 5);
 
         // After page 1 the current position moved to #8, but the anchor must stay at #3.
-        var second = await _sut.GetPageAsync(sessionId, 2, 5);
-        var resized = await _sut.GetPageAsync(sessionId, 1, 7);
+        var second = await _sut.GetAllAsync(sessionId, 2, 5);
+        var resized = await _sut.GetAllAsync(sessionId, 1, 7);
 
         first.FirstIndex.Should().Be("4");
         second.FirstIndex.Should().Be("4");
@@ -220,10 +220,10 @@ public class PermutationServiceTests
     }
 
     [Fact]
-    public async Task GetPageAsync_ThenNext_ContinuesAfterLastItemOfPage()
+    public async Task GetAllAsync_ThenNext_ContinuesAfterLastItemOfPage()
     {
         var sessionId = await StartAndAdvanceAsync(3, 2);
-        await _sut.GetPageAsync(sessionId, 1, 2);
+        await _sut.GetAllAsync(sessionId, 1, 2);
 
         var next = await _sut.GetNextAsync(sessionId);
 
@@ -232,11 +232,11 @@ public class PermutationServiceTests
     }
 
     [Fact]
-    public async Task GetPageAsync_LastPageThenNext_ReturnsNoMore()
+    public async Task GetAllAsync_LastPageThenNext_ReturnsNoMore()
     {
         var sessionId = await StartAndAdvanceAsync(3, 2);
-        await _sut.GetPageAsync(sessionId, 1, 2);
-        await _sut.GetPageAsync(sessionId, 2, 2);
+        await _sut.GetAllAsync(sessionId, 1, 2);
+        await _sut.GetAllAsync(sessionId, 2, 2);
 
         var next = await _sut.GetNextAsync(sessionId);
 
@@ -245,13 +245,13 @@ public class PermutationServiceTests
     }
 
     [Fact]
-    public async Task GetPageAsync_AfterNext_CapturesNewAnchor()
+    public async Task GetAllAsync_AfterNext_CapturesNewAnchor()
     {
         var sessionId = await StartAndAdvanceAsync(3, 1);
-        await _sut.GetPageAsync(sessionId, 1, 2); // anchor #1, position -> #3
+        await _sut.GetAllAsync(sessionId, 1, 2); // anchor #1, position -> #3
         await _sut.GetNextAsync(sessionId);       // position -> #4, ends "All" mode
 
-        var response = await _sut.GetPageAsync(sessionId, 1, 2);
+        var response = await _sut.GetAllAsync(sessionId, 1, 2);
 
         response.FirstIndex.Should().Be("5");
         response.TotalItems.Should().Be("2");
@@ -259,11 +259,11 @@ public class PermutationServiceTests
     }
 
     [Fact]
-    public async Task GetPageAsync_N20LastPage_ReturnsLastPermutationWithExactIndices()
+    public async Task GetAllAsync_N20LastPage_ReturnsLastPermutationWithExactIndices()
     {
         var sessionId = (await _sut.StartAsync(20)).SessionId;
 
-        var response = await _sut.GetPageAsync(sessionId, 2_432_902_008_176_640_000L, 1);
+        var response = await _sut.GetAllAsync(sessionId, 2_432_902_008_176_640_000L, 1);
 
         response.Page.Should().Be("2432902008176640000");
         response.TotalPages.Should().Be("2432902008176640000");
@@ -275,31 +275,31 @@ public class PermutationServiceTests
     }
 
     [Fact]
-    public async Task GetPageAsync_N20PartialLastPage_ReturnsRemainingItems()
+    public async Task GetAllAsync_N20PartialLastPage_ReturnsRemainingItems()
     {
         var sessionId = (await _sut.StartAsync(20)).SessionId;
         // 23 is a prime > 20, so it does not divide 20!: the last page is partial (20! mod 23 = 11).
         const int pageSize = 23;
         var totalPages = (2_432_902_008_176_640_000L + pageSize - 1) / pageSize;
 
-        var response = await _sut.GetPageAsync(sessionId, totalPages, pageSize);
+        var response = await _sut.GetAllAsync(sessionId, totalPages, pageSize);
 
         response.TotalPages.Should().Be(totalPages.ToString(System.Globalization.CultureInfo.InvariantCulture));
         response.Items.Should().HaveCount(11);
         response.Items[^1].Index.Should().Be("2432902008176640000");
     }
 
-    // ---- GetPageAsync: validation ---------------------------------------
+    // ---- GetAllAsync: validation ---------------------------------------
 
     [Theory]
     [InlineData(0)]
     [InlineData(-1)]
     [InlineData(1001)]
-    public async Task GetPageAsync_InvalidPageSize_ThrowsInvalidPageSize(int pageSize)
+    public async Task GetAllAsync_InvalidPageSize_ThrowsInvalidPageSize(int pageSize)
     {
         var sessionId = (await _sut.StartAsync(3)).SessionId;
 
-        var act = () => _sut.GetPageAsync(sessionId, 1, pageSize);
+        var act = () => _sut.GetAllAsync(sessionId, 1, pageSize);
 
         var ex = await act.Should().ThrowAsync<InvalidPageSizeException>();
         ex.Which.Field.Should().Be("pageSize");
@@ -309,11 +309,11 @@ public class PermutationServiceTests
     [Theory]
     [InlineData(0)]
     [InlineData(-3)]
-    public async Task GetPageAsync_PageBelowOne_ThrowsInvalidPageWithoutTouchingStore(long page)
+    public async Task GetAllAsync_PageBelowOne_ThrowsInvalidPageWithoutTouchingStore(long page)
     {
         var sessionId = (await _sut.StartAsync(3)).SessionId;
 
-        var act = () => _sut.GetPageAsync(sessionId, page, 2);
+        var act = () => _sut.GetAllAsync(sessionId, page, 2);
 
         var ex = await act.Should().ThrowAsync<InvalidPageException>();
         ex.Which.Field.Should().Be("page");
@@ -322,11 +322,11 @@ public class PermutationServiceTests
     }
 
     [Fact]
-    public async Task GetPageAsync_PageBeyondLast_ThrowsInvalidPageAndKeepsState()
+    public async Task GetAllAsync_PageBeyondLast_ThrowsInvalidPageAndKeepsState()
     {
         var sessionId = await StartAndAdvanceAsync(3, 2);
 
-        var act = () => _sut.GetPageAsync(sessionId, 3, 2);
+        var act = () => _sut.GetAllAsync(sessionId, 3, 2);
 
         var ex = await act.Should().ThrowAsync<InvalidPageException>();
         ex.Which.Message.Should().Be("page must be between 1 and 2.");
@@ -335,20 +335,20 @@ public class PermutationServiceTests
     }
 
     [Fact]
-    public async Task GetPageAsync_Page2WhenNothingRemains_ThrowsInvalidPage()
+    public async Task GetAllAsync_Page2WhenNothingRemains_ThrowsInvalidPage()
     {
         var sessionId = await StartAndAdvanceAsync(3, 6);
 
-        var act = () => _sut.GetPageAsync(sessionId, 2, 2);
+        var act = () => _sut.GetAllAsync(sessionId, 2, 2);
 
         (await act.Should().ThrowAsync<InvalidPageException>()).Which.Message
             .Should().Be("page must be between 1 and 1.");
     }
 
     [Fact]
-    public async Task GetPageAsync_UnknownSession_ThrowsSessionNotFound()
+    public async Task GetAllAsync_UnknownSession_ThrowsSessionNotFound()
     {
-        var act = () => _sut.GetPageAsync(Guid.NewGuid(), 1, 2);
+        var act = () => _sut.GetAllAsync(Guid.NewGuid(), 1, 2);
 
         await act.Should().ThrowAsync<SessionNotFoundException>();
     }
@@ -360,11 +360,11 @@ public class PermutationServiceTests
     {
         // Contract (n = 3, size 2): Next #1, All #2,#3, page 2 #4,#5, Back, All -> starts at #6.
         var sessionId = await StartAndAdvanceAsync(3, 1);
-        (await _sut.GetPageAsync(sessionId, 1, 2)).Items.Select(i => i.Index).Should().Equal("2", "3");
-        (await _sut.GetPageAsync(sessionId, 2, 2)).Items.Select(i => i.Index).Should().Equal("4", "5");
+        (await _sut.GetAllAsync(sessionId, 1, 2)).Items.Select(i => i.Index).Should().Equal("2", "3");
+        (await _sut.GetAllAsync(sessionId, 2, 2)).Items.Select(i => i.Index).Should().Equal("4", "5");
 
         await _sut.ExitAllModeAsync(sessionId);
-        var response = await _sut.GetPageAsync(sessionId, 1, 2);
+        var response = await _sut.GetAllAsync(sessionId, 1, 2);
 
         response.Should().BeEquivalentTo(
             new PermutationPageResponse([new PermutationItemDto("6", [3, 2, 1])], "1", 2, "1", "1", "6", null),
@@ -376,10 +376,10 @@ public class PermutationServiceTests
     {
         // Documents why Back must reach the server: without it the anchor of the previous "All" visit is reused.
         var sessionId = await StartAndAdvanceAsync(3, 1);
-        await _sut.GetPageAsync(sessionId, 1, 2);
-        await _sut.GetPageAsync(sessionId, 2, 2);
+        await _sut.GetAllAsync(sessionId, 1, 2);
+        await _sut.GetAllAsync(sessionId, 2, 2);
 
-        var response = await _sut.GetPageAsync(sessionId, 1, 2);
+        var response = await _sut.GetAllAsync(sessionId, 1, 2);
 
         response.FirstIndex.Should().Be("2");
     }
@@ -388,7 +388,7 @@ public class PermutationServiceTests
     public async Task ExitAllModeAsync_ClearsAnchorAndKeepsPosition()
     {
         var sessionId = await StartAndAdvanceAsync(3, 1);
-        await _sut.GetPageAsync(sessionId, 1, 2);
+        await _sut.GetAllAsync(sessionId, 1, 2);
 
         await _sut.ExitAllModeAsync(sessionId);
 
@@ -401,7 +401,7 @@ public class PermutationServiceTests
     public async Task ExitAllModeAsync_ThenNext_ContinuesAfterLastShownItem()
     {
         var sessionId = await StartAndAdvanceAsync(3, 1);
-        await _sut.GetPageAsync(sessionId, 1, 2);
+        await _sut.GetAllAsync(sessionId, 1, 2);
         await _sut.ExitAllModeAsync(sessionId);
 
         var next = await _sut.GetNextAsync(sessionId);
@@ -429,7 +429,7 @@ public class PermutationServiceTests
         var sessionId = (await _sut.StartAsync(3)).SessionId;
 
         await _sut.ExitAllModeAsync(sessionId);
-        var response = await _sut.GetPageAsync(sessionId, 1, 2);
+        var response = await _sut.GetAllAsync(sessionId, 1, 2);
 
         response.FirstIndex.Should().Be("1");
     }
@@ -438,7 +438,7 @@ public class PermutationServiceTests
     public async Task ExitAllModeAsync_AfterEmptyPage_KeepsPositionOnLast()
     {
         var sessionId = await StartAndAdvanceAsync(3, 6);
-        await _sut.GetPageAsync(sessionId, 1, 2);
+        await _sut.GetAllAsync(sessionId, 1, 2);
 
         await _sut.ExitAllModeAsync(sessionId);
 

@@ -41,7 +41,7 @@ public interface IPermutationService
     /// <exception cref="InvalidPageSizeException"><paramref name="pageSize"/> is out of range.</exception>
     /// <exception cref="InvalidPageException"><paramref name="page"/> is below 1 or beyond the last page.</exception>
     /// <exception cref="SessionNotFoundException">The session is unknown or expired.</exception>
-    Task<PermutationPageResponse> GetPageAsync(
+    Task<PermutationPageResponse> GetAllAsync(
         Guid sessionId,
         long page,
         int pageSize,

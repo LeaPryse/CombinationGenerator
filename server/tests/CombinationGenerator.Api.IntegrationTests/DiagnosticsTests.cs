@@ -66,7 +66,7 @@ public sealed class DiagnosticsTests
         public Task<NextPermutationResponse> GetNextAsync(Guid sessionId, CancellationToken cancellationToken = default) =>
             throw new InvalidOperationException(SecretMessage);
 
-        public Task<PermutationPageResponse> GetPageAsync(
+        public Task<PermutationPageResponse> GetAllAsync(
             Guid sessionId, long page, int pageSize, CancellationToken cancellationToken = default) =>
             throw new InvalidOperationException(SecretMessage);
 

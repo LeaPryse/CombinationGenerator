@@ -26,13 +26,16 @@ describe('NInputComponent', () => {
     fixture.detectChanges();
   });
 
-  it('disables Start until a value is entered', () => {
-    expect(submitButton().disabled).toBeTrue();
+  it('keeps Start enabled and shows an error when submitted empty', () => {
+    expect(submitButton().disabled).toBeFalse();
+    submitButton().click();
+    fixture.detectChanges();
+    expect(emitted).toEqual([]);
+    expect(el.querySelector('.validation')).not.toBeNull();
   });
 
   it('emits a valid n on submit', () => {
     type('3');
-    expect(submitButton().disabled).toBeFalse();
     submitButton().click();
     expect(emitted).toEqual([3]);
   });
@@ -48,10 +51,14 @@ describe('NInputComponent', () => {
   for (const bad of ['0', '21', '2.5', '-1']) {
     it(`rejects ${bad} with a validation message`, () => {
       type(bad);
-      expect(submitButton().disabled).toBeTrue();
-      expect(el.querySelector('.validation')).not.toBeNull();
       (el.querySelector('form') as HTMLFormElement).dispatchEvent(new Event('submit'));
+      fixture.detectChanges();
+      const input = el.querySelector('input') as HTMLInputElement;
       expect(emitted).toEqual([]);
+      expect(el.querySelector('.validation')).not.toBeNull();
+      expect(input.getAttribute('aria-invalid')).toBe('true');
+      expect(input.getAttribute('aria-describedby')).toBe('n-error');
+      expect(document.activeElement).toBe(input);
     });
   }
 

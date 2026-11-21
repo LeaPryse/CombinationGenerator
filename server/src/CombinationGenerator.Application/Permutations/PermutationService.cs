@@ -81,7 +81,7 @@ public sealed class PermutationService : IPermutationService
     }
 
     /// <inheritdoc />
-    public async Task<PermutationPageResponse> GetPageAsync(
+    public async Task<PermutationPageResponse> GetAllAsync(
         Guid sessionId,
         long page,
         int pageSize,
@@ -109,12 +109,9 @@ public sealed class PermutationService : IPermutationService
             pageSize,
             result.TotalPages);
 
-        var items = new PermutationItemDto[result.Items.Count];
-        for (var i = 0; i < items.Length; i++)
-        {
-            var item = result.Items[i];
-            items[i] = new PermutationItemDto(FormatDisplayIndex(item.Index), item.Values);
-        }
+        var items = result.Items
+            .Select(item => new PermutationItemDto(FormatDisplayIndex(item.Index), item.Values))
+            .ToArray();
 
         // Domain FirstIndex is the 0-based index of the first item after the anchor; +1 gives its display number.
         return new PermutationPageResponse(
